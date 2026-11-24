@@ -16,7 +16,7 @@ const FRONT_X = 400;
 const TRACK_Y = 268;
 const VEX = 3.2; // exagération verticale du relief
 
-interface Layer { p: number; base: number; amp: number; off: number; haze: number; trees: number; arr?: Float32Array; bio?: Uint8Array }
+interface Layer { p: number; base: number; amp: number; off: number; haze: number; trees: number; arr?: Float32Array; bio?: Uint8Array; col?: Float32Array }
 const LAYERS: Layer[] = [
   { p: 0.035, base: 176, amp: 0.34, off: 17, haze: 0.8, trees: 0 },
   { p: 0.08, base: 192, amp: 0.34, off: 10, haze: 0.62, trees: 0 },
@@ -53,7 +53,7 @@ export class SceneRenderer {
     this.trip = trip; this.world = world; this.route = trip.route; this.particles = [];
     const d = dateOf(trip.g.state.startYear, trip.g.state.day);
     this.season = seasonOf(d.doy);
-    for (const L of LAYERS) { L.arr = undefined; L.bio = undefined; }
+    for (const L of LAYERS) { L.arr = undefined; L.bio = undefined; L.col = undefined; }
     this.buildLayers(); this.buildObjects();
   }
 
@@ -79,6 +79,12 @@ export class SceneRenderer {
         L.arr[i] = sea ? base : base + (fbm(nz, (S_MIN + i * SAMPLE) / (900 - li * 150), li * 9.3, 3) * 0.5 + 0.5) * DETAIL[li] * (0.55 + Math.min(1, Math.max(0, base) / 250) * 0.6);
         L.bio![i] = biomeAt(w, x, y);
       }
+      // couleurs lissées (évite les ruptures nettes aux changements de biome)
+      const raw = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { const c = this.biomeColor(L.bio![i], L.arr[i], this.season); raw[i * 3] = c[0]; raw[i * 3 + 1] = c[1]; raw[i * 3 + 2] = c[2]; }
+      L.col = new Float32Array(n * 3);
+      const R = 3;
+      for (let i = 0; i < n; i++) { let a = 0, b = 0, cc = 0, k = 0; for (let j = Math.max(0, i - R); j <= Math.min(n - 1, i + R); j++) { a += raw[j * 3]; b += raw[j * 3 + 1]; cc += raw[j * 3 + 2]; k++; } L.col[i * 3] = a / k; L.col[i * 3 + 1] = b / k; L.col[i * 3 + 2] = cc / k; }
     }
   }
 
@@ -231,8 +237,8 @@ export class SceneRenderer {
         const b = L.bio![Math.round(clamp(fi, 0, L.arr.length - 1))];
         const sea = b === Biome.Ocean;
         const y = Math.round(L.base - ((sea ? seaH : h) - this.elevCam) * L.amp);
-        const col0 = this.biomeColor(b, h + this.elevCam * 0, this.season);
-        let col = mix(col0, hazeCol, haze);
+        const c3 = L.col!; const col0: RGB = [lerp(c3[i0 * 3], c3[i0 * 3 + 3], t), lerp(c3[i0 * 3 + 1], c3[i0 * 3 + 4], t), lerp(c3[i0 * 3 + 2], c3[i0 * 3 + 5], t)];
+        let col = sea ? mix(this.biomeColor(Biome.Ocean, 0, this.season), hazeCol, haze) : mix(col0, hazeCol, haze);
         if (sea) { const sh = 0.5 + 0.5 * Math.sin(x * 0.4 + this.t * 2 + li); col = mix(col, [255, 255, 255], sh * 0.08); }
         const yy = clamp(y, -4, VH);
         c.fillStyle = css(shade(col, 1.12)); c.fillRect(x, yy, 1, 2);
@@ -322,6 +328,7 @@ export class SceneRenderer {
         c.fillStyle = css(shade(col, 1.05)); c.fillRect(x, gy, 1, 2);
         c.fillStyle = css(shade(col, 0.88)); c.fillRect(x, gy + 2, 1, 22);
         c.fillStyle = css(shade(col, 0.74)); c.fillRect(x, gy + 24, 1, VH);
+        for (let k = 0; k < 4; k++) { const yy = gy + 30 + k * 18 + ((x * 13 + k * 7) % 5 === 0 ? 1 : 0); if (((x >> 3) + k) % 3 === 0) { c.fillStyle = css(shade(col, 0.66 + k * 0.03)); c.fillRect(x, yy, 1, 2); } }
         // déblai : talus derrière la voie
         if (ground > 3) { const hh = Math.round(clamp(ground * 0.9, 0, 26)); c.fillStyle = css(shade(col, 0.8)); c.fillRect(x, y - hh, 1, hh); c.fillStyle = css(shade(col, 0.95)); c.fillRect(x, y - hh, 1, 1); }
         if (((x + (this.sFront / MPP | 0)) * 2654435761 >>> 0) % 23 === 0) { c.fillStyle = css(shade(col, 1.2)); c.fillRect(x, gy, 1, 1); }
@@ -615,15 +622,25 @@ export class SceneRenderer {
 
   private drawForeground() {
     const c = this.c, r = this.route;
-    const p = 1.5;
-    // herbes et clôture
-    for (let s0 = Math.floor((this.sFront - FRONT_X * MPP / p) / 20) * 20; s0 < this.sFront + (VW - FRONT_X) * MPP / p + 20; s0 += 20) {
-      const gi = Math.round(clamp(s0, 0, r.length) / 10); if (r.tunnel[gi]) continue;
-      const x = FRONT_X + (s0 - this.sFront) * p / MPP;
-      const y = this.yOf(s0) + 36 + (s0 % 3) * 2;
-      const hsh = (Math.abs(s0) * 2654435761 >>> 0);
-      if (hsh % 5 < 3) { const col = this.biomeColor(this.groundBiome(clamp(s0, 0, r.length)), 0, this.season); c.fillStyle = css(shade(col, 0.55)); for (let k = 0; k < 4; k++) c.fillRect(Math.round(x + k * 2), Math.round(y - (k % 2 ? 4 : 7)), 1, k % 2 ? 4 : 7); }
-      if (hsh % 17 === 0) { const pr = P.tree('bush', hsh % 4, this.season, 12); c.drawImage(pr.canvas, Math.round(x - 6), Math.round(y + 6 - 12)); }
+    const planes = [{ p: 1.25, dy: 22 }, { p: 1.6, dy: 44 }, { p: 2.2, dy: 74 }];
+    for (const pl of planes) {
+      const step = 18;
+      const s0a = Math.floor((this.sFront - FRONT_X * MPP / pl.p) / step) * step;
+      for (let s0 = s0a; s0 < this.sFront + (VW - FRONT_X) * MPP / pl.p + step; s0 += step) {
+        const gi = Math.round(clamp(s0, 0, r.length) / 10); if (r.tunnel[gi] || r.bridge[gi]) continue;
+        const x = FRONT_X + (s0 - this.sFront) * pl.p / MPP;
+        const y = this.yOf(clamp(s0, 0, r.length)) + pl.dy;
+        const hsh = (Math.abs(Math.round(s0 * 7 + pl.dy)) * 2654435761 >>> 0);
+        const col = this.biomeColor(this.groundBiome(clamp(s0, 0, r.length)), 0, this.season);
+        const dark = css(shade(col, 0.5)), light = css(shade(col, 1.25));
+        const kind = hsh % 10;
+        if (kind < 4) { c.fillStyle = dark; for (let k = 0; k < 5; k++) c.fillRect(Math.round(x + k * 2), Math.round(y - (k % 2 ? 4 : 8) * (pl.p > 1.5 ? 1.4 : 1)), 1, Math.round((k % 2 ? 4 : 8) * (pl.p > 1.5 ? 1.4 : 1))); }
+        else if (kind < 5) { c.fillStyle = css(mix(hex('#5a4630'), [0, 0, 0], 0.1)); for (let k = 0; k < 3; k++) c.fillRect(Math.round(x + k * 9), Math.round(y - 10), 1, 11); c.fillRect(Math.round(x), Math.round(y - 8), 19, 1); c.fillRect(Math.round(x), Math.round(y - 4), 19, 1); }
+        else if (kind < 6) { const pr = P.tree('bush', hsh % 4, this.season, 12); c.drawImage(pr.canvas, Math.round(x - 6), Math.round(y - 11)); }
+        else if (kind < 7 && this.season !== 'hiver') { const fc = this.season === 'automne' ? ['#d9a032', '#b8452c'] : ['#f2e66a', '#e87aa0', '#ffffff']; for (let k = 0; k < 4; k++) { c.fillStyle = fc[(hsh + k) % fc.length]; c.fillRect(Math.round(x + k * 3), Math.round(y - 3 - (k % 2) * 2), 1, 1); c.fillStyle = dark; c.fillRect(Math.round(x + k * 3), Math.round(y - 2 - (k % 2) * 2), 1, 2 + (k % 2) * 2); } }
+        else if (kind < 8) { const pr = P.rock(hsh % 4, this.season === 'hiver'); c.drawImage(pr.canvas, Math.round(x - 7), Math.round(y - 8)); }
+        else if (kind < 9) { c.fillStyle = light; c.fillRect(Math.round(x), Math.round(y), 6, 1); c.fillStyle = dark; c.fillRect(Math.round(x + 1), Math.round(y + 1), 6, 1); }
+      }
     }
   }
 

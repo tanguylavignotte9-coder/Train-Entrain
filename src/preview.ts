@@ -18,7 +18,19 @@ const ev = evaluateContract(g, c, true);
 acceptContract(g, c, true);
 const { units, rented } = loadTrain(g, c, ev, true);
 const trip = new Trip(g, c, units, rented, ev.rentCost, ev.loaded);
-trip.hour = hour; trip.sim.s = pos; trip.sim.v = speed; trip.ctl.brake = 0; trip.ctl.throttle = 0.6; trip.ctl.shovel = true; trip.ctl.injector = true;
+let startS = pos;
+const at = q.get('at');
+if (at) {
+  const r = trip.route;
+  if (at === 'tunnel') { for (let i = 0; i < r.n; i++) if (r.tunnel[i] && !r.tunnel[i - 1]) { startS = i * 10 - 150; break; } }
+  if (at === 'bridge') { for (let i = 0; i < r.n; i++) if (r.bridge[i] && !r.bridge[i - 1]) { startS = i * 10 - 150; break; } }
+  if (at === 'loop' && r.loops[0]) startS = r.loops[0].signalS - 260;
+  if (at === 'crossing') { const f = r.features.find(x => x.kind === 'crossing'); if (f) startS = f.s - 150; }
+  if (at === 'stop') startS = r.stopS - 60;
+  if (at === 'station') startS = r.startFront;
+  if (at === 'work') { const f = r.features.find(x => x.kind === 'worksite'); if (f) startS = f.s - 100; }
+}
+trip.hour = hour; trip.sim.s = startS; trip.sim.v = speed; trip.ctl.brake = 0; trip.ctl.throttle = 0.6; trip.ctl.shovel = true; trip.ctl.injector = true;
 (window as any).trip = trip;
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const scene = new SceneRenderer();
