@@ -7,6 +7,6 @@ const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 const port = Number(process.env.PORT || 8080);
 createServer(async (req, res) => {
   const p = (req.url || '/').split('?')[0];
-  try { const d = await readFile(join(root, p === '/' ? 'index.html' : p)); res.writeHead(200, { 'Content-Type': types[extname(p === '/' ? '.html' : p)] || 'application/octet-stream' }); res.end(d); }
+  try { const d = await readFile(join(root, p === '/' ? 'index.html' : p)); res.writeHead(200, { 'Content-Type': types[extname(p === '/' ? 'index.html' : p)] || 'application/octet-stream' }); res.end(d); }
   catch { res.writeHead(404); res.end('404'); }
 }).listen(port, () => console.log(`Train Entrain (mode navigateur) : http://localhost:${port}`));

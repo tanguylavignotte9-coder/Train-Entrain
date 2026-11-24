@@ -3,7 +3,7 @@ import { clamp } from '../core/util';
 import { GOODS, WAGONS, goodById, goodAvailable, wagonAvailable, wagonById, locoById, eraAt, type WagonDef } from '../data';
 import { rates, priceMul, passengerMul, popOf, yearOf } from '../economy/economy';
 import { distancesFrom, shortestPath } from '../world/graph';
-import { edgeUsable, edgeElectrified, yearNow, type Contract, type Game, fleetUnit, unitBusy } from './state';
+import { edgeUsable, edgeElectrified, yearNow, newGame, type Contract, type Game, fleetUnit, unitBusy } from './state';
 import type { Unit } from '../sim/train';
 
 export const MAX_VEHICLES = 24;
@@ -81,7 +81,8 @@ function generateBoard(g: Game, cityId: number, week: number): Contract[] {
     const n = stock > 150 && rng.chance(0.5) ? 2 : 1;
     for (let k = 0; k < n; k++) {
       const d = rng.pick(top);
-      const tonnes = clamp(Math.round(stock * rng.range(0.2, 0.65) / 10) * 10, 20, 300);
+      const tierMax = 70 + (year - 1905) * 3.2;
+      const tonnes = clamp(Math.round(Math.min(stock * 0.8, tierMax * rng.pick([0.3, 0.45, 0.65, 0.9, 1.15])) / 10) * 10, 20, 480);
       const p = mk(d.id);
       const mul = priceMul(w, s.eco, year, d.id, gd.id);
       const premium = rng.chance(0.12);
@@ -98,7 +99,7 @@ function generateBoard(g: Game, cityId: number, week: number): Contract[] {
   const here = popOf(w, s.eco, year, cityId);
   for (const { d, pop } of rng.shuffle(pops).slice(0, 3)) {
     const fest = passengerMul(w, s.eco, cityId) * passengerMul(w, s.eco, d.id);
-    const total = clamp(Math.round(Math.sqrt(here * pop) * 7 * (0.6 + 0.8 * s.reputation / 100) * fest * rng.range(0.7, 1.3) / 5) * 5, 30, 700);
+    const total = clamp(Math.round(Math.sqrt(here * pop) * 7 * (0.6 + 0.8 * s.reputation / 100) * fest * rng.range(0.7, 1.3) / 5) * 5, 30, Math.round(90 + (year - 1905) * 3));
     const sh = paxShares(year);
     const pax = { c1: Math.round(total * sh.c1), c3: Math.round(total * sh.c3), c2: 0 };
     (pax as any).c2 = total - pax.c1 - pax.c3;
@@ -276,3 +277,19 @@ export function loadTrain(g: Game, c: Contract, compat: Compat, rent: boolean): 
   return { units: [loco, ...all], rented };
 }
 export { yearOf };
+
+/** Nouvelle partie dont le siège propose dès le départ des contrats de fret. */
+export function startGame(opts: { seed?: string; startYear?: number; company?: string }): Game {
+  const g = newGame(opts);
+  const s = g.state, w = g.world;
+  const hasFreight = (id: number) => { s.location = id; return getBoard(g, id).some(c => c.kind === 'freight'); };
+  if (hasFreight(s.hq)) return g;
+  const region = w.cities[s.hq].region;
+  const cands = w.cities.filter(c => c.connected && c.pop > 6 && c.id !== s.hq).sort((a, b) => (a.region === region ? 0 : 1) - (b.region === region ? 0 : 1) || b.pop - a.pop);
+  for (const c of cands) {
+    if (hasFreight(c.id)) { delete s.depots[s.hq]; s.hq = c.id; s.location = c.id; s.depots = { [c.id]: 1 }; s.message = [`Bienvenue chez ${s.company} ! Votre première locomotive vous attend au dépôt de ${w.cities[c.id].name}.`]; return g; }
+  }
+  s.location = s.hq;
+  return g;
+}
+

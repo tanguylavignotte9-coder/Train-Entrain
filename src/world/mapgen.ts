@@ -99,7 +99,7 @@ export function generateWorld(seed: string): World {
   const biome = new Uint8Array(N * N);
   for (let i = 0; i < N * N; i++) {
     const h = height[i], m = moisture[i];
-    biome[i] = h <= SEA_LEVEL ? Biome.Ocean : h < SEA_LEVEL + 0.025 ? Biome.Beach : h > 0.8 ? Biome.Snow : h > 0.66 ? Biome.Mountain
+    biome[i] = h <= SEA_LEVEL ? Biome.Ocean : h < SEA_LEVEL + 0.025 ? Biome.Beach : h > 0.86 ? Biome.Snow : h > 0.68 ? Biome.Mountain
       : h > 0.52 ? (m > 0.6 ? Biome.Forest : Biome.Hills) : (m > 0.58 ? Biome.Forest : Biome.Plains);
   }
 
