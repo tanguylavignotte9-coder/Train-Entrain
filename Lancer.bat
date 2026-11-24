@@ -14,6 +14,11 @@ if not exist "node_modules\electron" (
   call npm install --no-audit --no-fund
   if errorlevel 1 goto fail
 )
+if not exist "node_modules\electron\dist\electron.exe" (
+  echo Telechargement d'Electron ^(les scripts d'installation de npm peuvent etre bloques^)...
+  node node_modules\electron\install.js
+  if errorlevel 1 goto fail
+)
 
 echo Demarrage de Train Entrain...
 call npm start
