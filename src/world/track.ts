@@ -27,10 +27,10 @@ export function edgeProfile(w: World, e: Edge): EdgeProfile {
   for (let i = 0; i <= n; i++) {
     const f = i / n;
     const dev = tH[i] - lerp(h0, h1, f);
-    ground[i] = lerp(A.elev, B.elev, f) + dev * 0.75;
+    ground[i] = lerp(A.elev, B.elev, f) + dev * 0.55;
   }
   // déblais/remblais : lissage puis limitation des pentes
-  const gmax = e.mountain > 0.5 ? 0.04 : 0.032;
+  const gmax = e.mountain > 0.5 ? 0.036 : 0.028;
   for (let i = 0; i <= n; i++) t[i] = ground[i];
   const tmp = new Float32Array(n + 1);
   for (let pass = 0; pass < 6; pass++) {

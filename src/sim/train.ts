@@ -18,7 +18,7 @@ export const newCond = (v = 1): Cond => ({ wheels: v, axles: v, brakes: v, power
 export interface Unit {
   uid: number; defId: string; kind: 'loco' | 'wagon'; cond: Cond; upgrades: Record<string, number>;
   km: number; inspectedKm: number | null; inspectedDay: number | null; loadT: number; cargo?: string;
-  rented?: boolean;
+  rented?: boolean; fuel?: number; water?: number;
 }
 
 export interface Controls {
