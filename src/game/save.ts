@@ -49,6 +49,7 @@ export function migrate(state: any, from: number): GameState {
   s.message = s.message ?? [];
   s.takenIds = s.takenIds ?? [];
   s.acc = s.acc ?? { overhead: 0, interest: 0 };
+  s.service = s.service ?? {};
   return s as GameState;
 }
 

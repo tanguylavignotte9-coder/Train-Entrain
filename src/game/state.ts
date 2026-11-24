@@ -30,7 +30,7 @@ export interface GameState {
   depots: Record<string, number>; warehouses: Record<string, number>;
   builtEdges: number[]; electrified: Record<string, number>;
   eco: EconomyState; contract: Contract | null; takenIds: string[]; jobs: WorkshopJob[]; ledger: LedgerEntry[];
-  stats: Stats; goalsDone: string[]; settings: Settings; rescues: number; message: string[]; acc: { overhead: number; interest: number };
+  stats: Stats; goalsDone: string[]; settings: Settings; rescues: number; message: string[]; acc: { overhead: number; interest: number }; service: Record<string, number>;
 }
 export interface Game { state: GameState; world: World }
 
@@ -44,6 +44,7 @@ export function worldFor(seed: string): World {
 /** Inflation : les prix (revenus, frais, amendes) croissent avec les décennies. */
 export const inflationAt = (year: number) => 1 + 0.03 * (year - 1905);
 export const REVENUE_K = 3.2;
+export const serviceOf = (s: GameState, city: number) => s.service[city] ?? 0.5;
 export const yearNow = (s: GameState) => yearOf(s.startYear, s.day);
 export const dateNow = (s: GameState): DateInfo => dateOf(s.startYear, s.day);
 export const edgeActive = (s: GameState, e: Edge) => e.initial || s.builtEdges.includes(e.id);
@@ -97,7 +98,7 @@ export function newGame(opts: { seed?: string; startYear?: number; company?: str
     fleet: [], nextUid: 1, hq: hq.id, location: hq.id, locoUid: null, consistUids: [],
     depots: { [hq.id]: 1 }, warehouses: {}, builtEdges: [], electrified: {}, eco, contract: null, takenIds: [], jobs: [], ledger: [],
     stats: { trips: 0, deliveries: 0, tonnes: 0, passengers: 0, km: 0, regionsServed: [], tractions: [], crisesSurvived: 0, accidents: 0, onTime: 0, built: 0, earned: 0, maxMoney: 0, electrified: 0, breakdowns: 0 },
-    goalsDone: [], settings: { volume: 0.7, music: 0.5, hints: true }, rescues: 0, message: [], acc: { overhead: 0, interest: 0 },
+    goalsDone: [], settings: { volume: 0.7, music: 0.5, hints: true }, rescues: 0, message: [], acc: { overhead: 0, interest: 0 }, service: {},
   };
   // préchauffage de l'économie (dynamique visible dès le départ)
   for (let d = 1; d <= 40; d++) stepEconomyDay(world, eco, seed, startYear, d);

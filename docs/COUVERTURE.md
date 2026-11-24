@@ -39,7 +39,7 @@ fumée/vapeur, lumières dynamiques ; pixel art HD à échelle entière.
 
 ## Économie et époques
 Stocks, production et consommation par ville ; prix évoluant avec stock et demande indépendamment du joueur ; fret (charbon, minerai, bois, céréales, bétail, matériaux, produits
-manufacturés, carburants, denrées périssables) avec wagons, fragilité et délais propres ; voyageurs (classes), courrier et bagages, demande selon taille, réputation, service ;
+manufacturés, carburants, denrées périssables) avec wagons, fragilité et délais propres ; voyageurs (classes), courrier et bagages, demande selon taille de la ville, réputation et **qualité du service** (score par ville mis à jour à chaque livraison) ;
 événements (récoltes, pénuries, grèves, catastrophes, festivals, croissance/déclin) ; époques : technologies, marchandises et attentes des clients évoluent.
 Rythme : trajets de 5 à 15 minutes, 1 an de jeu = 2 heures (`YEAR_SECONDS`).
 

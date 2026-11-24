@@ -1,7 +1,7 @@
 import { clamp, fmtMoney, fmtNum, fmtTime } from '../core/util';
 import { ERAS, GOODS, LOCOS, WAGONS, UPGRADES, eraAt, goodById, locoAvailable, wagonAvailable, locoById, wagonById, industryById, expectations, type LocoDef, type WagonDef } from '../data';
 import { PARTS, partName, type Part, type Unit } from '../sim/train';
-import { dateNow, edgeActive, edgeElectrified, fleetUnit, loanLimit, operatingOverhead, unitBusy, unitDef, yearNow, type Contract, type Game } from '../game/state';
+import { serviceOf, dateNow, edgeActive, edgeElectrified, fleetUnit, loanLimit, operatingOverhead, unitBusy, unitDef, yearNow, type Contract, type Game } from '../game/state';
 import { fmtDate } from '../sim/weather';
 import * as A from '../game/actions';
 import { getBoard, deadheadOptions, evaluateContract, pickWagonsAuto, maxTrainMassT, wagonMatches, type Compat, PAX_KG, MAX_VEHICLES } from '../game/contracts';
@@ -233,7 +233,7 @@ export class Hub {
       info = `<h3 style="margin-top:0">${esc(c.name)} ${c.id === s.hq ? '★ siège' : ''}</h3>
       <div class="kv"><span>Région</span><span>${esc(w.regions[c.region].name)}</span><span>Population</span><span>${fmtNum(pop * 1000)} hab.</span><span>Relief</span><span>${{ plains: 'plaine', coast: 'côte', mountain: 'montagne', hills: 'collines', forest: 'forêt' }[c.terrain]}, altitude ${Math.round(c.elev)} m</span>
       <span>Industries</span><span>${c.industries.map(i => industryById(i).name).join(', ') || '—'}</span><span>Raccordement</span><span>${connected ? '<span class="good">relié au réseau</span>' : '<span class="bad">non raccordé</span>'}</span>
-      <span>Dépôt</span><span>${dep !== undefined ? 'atelier niv. ' + dep : '—'}</span><span>Entrepôt</span><span>${wh ? 'niv. ' + wh : '—'}</span></div>
+      <span>Qualité de service</span><span>${Math.round(serviceOf(s, c.id) * 100)} % <span class="dim small">(influence la demande de voyageurs)</span></span><span>Dépôt</span><span>${dep !== undefined ? 'atelier niv. ' + dep : '—'}</span><span>Entrepôt</span><span>${wh ? 'niv. ' + wh : '—'}</span></div>
       <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap">
         ${dep === undefined ? `<button class="small" data-act="build" data-k="depot" data-id="${c.id}">Construire un dépôt (${fmtMoney(A.depotCost(w, c.id))})</button>` : dep < 3 ? `<button class="small" data-act="build" data-k="workshop" data-id="${c.id}">Atelier niv. ${dep + 1} (${fmtMoney(A.workshopCost(dep))})</button>` : ''}
         ${wh < 3 ? `<button class="small" data-act="build" data-k="warehouse" data-id="${c.id}">Entrepôt niv. ${wh + 1} (${fmtMoney(A.warehouseCost(wh))})</button>` : ''}</div>

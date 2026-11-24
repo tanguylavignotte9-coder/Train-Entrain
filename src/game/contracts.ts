@@ -3,7 +3,7 @@ import { clamp } from '../core/util';
 import { GOODS, WAGONS, goodById, goodAvailable, wagonAvailable, wagonById, locoById, eraAt, type WagonDef } from '../data';
 import { rates, priceMul, passengerMul, popOf, yearOf } from '../economy/economy';
 import { distancesFrom, shortestPath } from '../world/graph';
-import { edgeUsable, edgeElectrified, yearNow, newGame, inflationAt, REVENUE_K, type Contract, type Game, fleetUnit, unitBusy } from './state';
+import { edgeUsable, edgeElectrified, yearNow, newGame, inflationAt, REVENUE_K, serviceOf, type Contract, type Game, fleetUnit, unitBusy } from './state';
 import type { Unit } from '../sim/train';
 
 export const MAX_VEHICLES = 24;
@@ -99,7 +99,7 @@ function generateBoard(g: Game, cityId: number, week: number): Contract[] {
   const here = popOf(w, s.eco, year, cityId);
   for (const { d, pop } of rng.shuffle(pops).slice(0, 3)) {
     const fest = passengerMul(w, s.eco, cityId) * passengerMul(w, s.eco, d.id);
-    const total = clamp(Math.round(Math.sqrt(here * pop) * 7 * (0.6 + 0.8 * s.reputation / 100) * fest * rng.range(0.7, 1.3) / 5) * 5, 30, Math.round(90 + (year - 1905) * 3));
+    const total = clamp(Math.round(Math.sqrt(here * pop) * 7 * (0.6 + 0.8 * s.reputation / 100) * (0.7 + 0.6 * serviceOf(s, cityId)) * (0.8 + 0.4 * serviceOf(s, d.id)) * fest * rng.range(0.7, 1.3) / 5) * 5, 30, Math.round(90 + (year - 1905) * 3));
     const sh = paxShares(year);
     const pax = { c1: Math.round(total * sh.c1), c3: Math.round(total * sh.c3), c2: 0 };
     (pax as any).c2 = total - pax.c1 - pax.c3;

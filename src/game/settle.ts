@@ -104,6 +104,7 @@ export function settleTrip(g: Game, trip: Trip): Settlement {
   if (c.kind !== 'deadhead') {
     const quality = res.status === 'arrived' ? clamp(0.55 * Math.min(1, pay.punctual) + 0.45 * (c.kind === 'passenger' ? res.comfort : res.cargoCondition), 0, 1) : 0.2;
     reputationDelta += (quality - 0.7) * 6 + (pay.punctual >= 1.05 ? 0.5 : 0);
+    for (const id of [c.from, c.to]) s.service[id] = Math.round((0.7 * (s.service[id] ?? 0.5) + 0.3 * quality) * 1000) / 1000;
   }
   reputationDelta -= res.accidents * 2.5; if (res.status === 'towed') reputationDelta -= 3; if (res.status === 'wrecked') reputationDelta -= 5;
   reputationDelta = clamp(reputationDelta, -10, 5);
