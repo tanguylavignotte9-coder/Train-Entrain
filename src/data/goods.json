@@ -1,0 +1,12 @@
+[
+  { "id": "coal", "name": "Charbon", "category": "freight", "wagons": ["open"], "base": 12, "rate": 1.0, "fragility": 0.0, "perish": 0.0, "intro": 1895, "color": "#2b2b2f" },
+  { "id": "ore", "name": "Minerai", "category": "freight", "wagons": ["open"], "base": 16, "rate": 1.1, "fragility": 0.0, "perish": 0.0, "intro": 1895, "color": "#8a5a3c" },
+  { "id": "wood", "name": "Bois", "category": "freight", "wagons": ["flat"], "base": 14, "rate": 1.2, "fragility": 0.05, "perish": 0.0, "intro": 1895, "color": "#9c6b3a" },
+  { "id": "grain", "name": "Céréales", "category": "freight", "wagons": ["covered"], "base": 20, "rate": 1.25, "fragility": 0.1, "perish": 0.05, "intro": 1895, "color": "#d9b64a" },
+  { "id": "cattle", "name": "Bétail", "category": "freight", "wagons": ["cattle"], "base": 45, "rate": 2.0, "fragility": 0.5, "perish": 0.35, "intro": 1895, "color": "#b7a38a" },
+  { "id": "materials", "name": "Matériaux", "category": "freight", "wagons": ["open", "flat"], "base": 14, "rate": 1.0, "fragility": 0.05, "perish": 0.0, "intro": 1895, "color": "#9a9aa0" },
+  { "id": "goods", "name": "Produits manufacturés", "category": "freight", "wagons": ["covered", "container"], "base": 70, "rate": 2.0, "fragility": 0.6, "perish": 0.05, "intro": 1895, "color": "#6f8fb0" },
+  { "id": "fuel", "name": "Carburants", "category": "freight", "wagons": ["tank"], "base": 38, "rate": 1.6, "fragility": 0.1, "perish": 0.0, "intro": 1912, "color": "#c9722b" },
+  { "id": "perishables", "name": "Denrées périssables", "category": "freight", "wagons": ["reefer"], "base": 50, "rate": 2.0, "fragility": 0.25, "perish": 0.85, "intro": 1895, "color": "#7fbf7f" },
+  { "id": "mail", "name": "Courrier et bagages", "category": "mail", "wagons": ["mail"], "base": 60, "rate": 1.8, "fragility": 0.2, "perish": 0.2, "intro": 1895, "color": "#c94a4a" }
+]

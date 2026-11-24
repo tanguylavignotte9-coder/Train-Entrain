@@ -1,0 +1,7 @@
+[
+ { "from":1895,"name":"L'âge de la vapeur","lineSpeedKmh":80,"expectedSpeedKmh":38,"expectedComfort":0.40,"signalSight":500,"blurb":"Les premières grandes lignes relient les villes. La vapeur règne, le charbon est roi." },
+ { "from":1925,"name":"Entre-deux-guerres","lineSpeedKmh":100,"expectedSpeedKmh":50,"expectedComfort":0.48,"signalSight":600,"blurb":"Les premières lignes électrifiées apparaissent et le diesel naît. La route commence à concurrencer le rail." },
+ { "from":1950,"name":"Reconstruction et diesel","lineSpeedKmh":120,"expectedSpeedKmh":64,"expectedComfort":0.58,"signalSight":700,"blurb":"Le diesel détrône la vapeur. Les wagons à bogies augmentent les charges." },
+ { "from":1975,"name":"L'électrique et le confort","lineSpeedKmh":140,"expectedSpeedKmh":80,"expectedComfort":0.70,"signalSight":800,"blurb":"Climatisation, conteneurs et freinage à récupération. Les clients exigent vitesse et confort." },
+ { "from":2000,"name":"Ère moderne","lineSpeedKmh":160,"expectedSpeedKmh":96,"expectedComfort":0.82,"signalSight":900,"blurb":"Matériel bimode, haute fiabilité, clients exigeants et marchés mondialisés." }
+]

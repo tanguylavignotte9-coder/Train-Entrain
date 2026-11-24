@@ -1,0 +1,10 @@
+[
+  { "id": "coal_mine", "name": "Mine de charbon", "terrain": ["mountain", "hills"], "produce": { "coal": 34 }, "consume": { "goods": 1.5 }, "introYear": 1895, "fadeYear": 1975 },
+  { "id": "ore_mine", "name": "Mine de minerai", "terrain": ["mountain", "hills"], "produce": { "ore": 28 }, "consume": { "goods": 1.5, "fuel": 1 }, "introYear": 1895 },
+  { "id": "farm", "name": "Coopérative agricole", "terrain": ["plains"], "produce": { "grain": 24, "cattle": 5, "perishables": 5 }, "consume": { "goods": 1.5, "fuel": 1.5 }, "introYear": 1895 },
+  { "id": "forestry", "name": "Scierie", "terrain": ["forest", "hills"], "produce": { "wood": 26 }, "consume": { "goods": 1, "fuel": 0.8 }, "introYear": 1895 },
+  { "id": "quarry", "name": "Carrière", "terrain": ["hills", "mountain"], "produce": { "materials": 28 }, "consume": { "fuel": 1 }, "introYear": 1895 },
+  { "id": "factory", "name": "Usine", "terrain": ["plains", "hills"], "produce": { "goods": 16 }, "consume": { "coal": 12, "ore": 10, "wood": 5, "materials": 4 }, "introYear": 1895 },
+  { "id": "refinery", "name": "Raffinerie", "terrain": ["coast"], "produce": { "fuel": 20 }, "consume": {}, "introYear": 1912 },
+  { "id": "port", "name": "Port", "terrain": ["coast"], "produce": { "goods": 8, "fuel": 6 }, "consume": { "grain": 10, "coal": 8, "ore": 12, "wood": 6, "cattle": 2, "perishables": 2 }, "introYear": 1895 }
+]
