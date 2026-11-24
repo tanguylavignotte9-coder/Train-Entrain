@@ -15,5 +15,6 @@ await build({
   loader: { '.json': 'json' },
 });
 cpSync(join(root, 'static'), dist, { recursive: true });
+if (entries.preview) { const { writeFileSync } = await import('node:fs'); writeFileSync(join(dist, 'preview.html'), '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="style.css"><canvas id="game" width="640" height="360"></canvas><script src="preview.js"></script>'); }
 if (existsSync(join(root, 'assets'))) cpSync(join(root, 'assets'), join(dist, 'assets'), { recursive: true });
 console.log('Build terminé → dist/');

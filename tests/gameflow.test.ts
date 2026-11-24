@@ -7,42 +7,7 @@ import { settleTrip } from '../src/game/settle';
 import { serialize, deserialize } from '../src/game/save';
 import { LOCOS, locoAvailable } from '../src/data';
 
-/** Pilote de test : régulation simple de vitesse. */
-function drive(trip: Trip, maxSec = 2400) {
-  let stuck = 0;
-  const sim = trip.sim, ctl = trip.ctl;
-  for (let i = 0; i < maxSec * 20 && trip.status === 'running'; i++) {
-    let lim = trip.currentLimit() - 1.5;
-    for (let d = 40; d <= 2600; d += 40) lim = Math.min(lim, Math.sqrt((trip.currentLimit(sim.s + d) - 1.5) ** 2 + 2 * 0.4 * d));
-    // passages à niveau : siffler en approche
-    trip.whistle(trip.route.features.some(f => f.kind === 'crossing' && f.s - sim.s > 80 && f.s - sim.s < 600));
-    const dStop = trip.distToStop();
-    // vitesse cible limitée par la distance d'arrêt (décélération 0,35 m/s²)
-    const vStop = Math.sqrt(Math.max(0, 2 * 0.35 * (dStop - 4)));
-    let target = Math.min(lim, vStop, sim.maxSpeedAllowed - 1);
-    const red = trip.nextRedSignal();
-    if (red !== null) target = Math.min(target, Math.sqrt(Math.max(0, 2 * 0.22 * (red - 25))));
-    if (dStop < 60) target = Math.min(target, Math.max(0.0, dStop * 0.12));
-    ctl.cutoff = 0.35; ctl.blower = false;
-    const err = target - sim.v;
-    if (err > 0.5 && !(red !== null && red < 30)) { ctl.brake = 0; ctl.throttle = Math.min(1, err * 0.3 + 0.2); }
-    else if (err < -0.6) { ctl.throttle = 0; ctl.brake = Math.min(1, -err * 0.3 + 0.15); }
-    else { ctl.throttle = Math.max(0, 0.15 + err * 0.1); ctl.brake = 0; }
-    if (target < 0.4 && dStop < 8) { ctl.throttle = 0; ctl.brake = 0.9; }
-    if (target < 0.6 && sim.v < 0.3 && dStop > 50 && red === null) { ctl.brake = 0; ctl.throttle = 0.3; }
-    if (sim.steam) { ctl.shovel = sim.steam.bed < 100; ctl.injector = sim.steam.level < 0.5; ctl.cutoff = sim.v < 14 ? 0.65 : 0.4; }
-    if (red !== null && red < 80 && sim.v < 4) { ctl.throttle = 0; ctl.brake = 0.8; }
-    ctl.sand = sim.slipping || sim.v < 9;
-    if (sim.slipping && sim.v < 9) ctl.throttle *= 0.7;
-    if (Math.abs(sim.v) < 0.3 && dStop > 100) stuck += 0.05; else stuck = Math.max(0, stuck - 0.05);
-    if (stuck > 45 || sim.v < -8) trip.callTow();
-    ctl.dyn = 0;
-    trip.update(0.05);
-    if (trip.disabled) trip.callTow();
-    if (process.env.DBG2 && trip.route.loops[0] && Math.abs(sim.s - trip.route.loops[0].signalS) < 1500 && i % 10 === 0) console.log(trip.time.toFixed(0), 'pos', sim.s.toFixed(0), 'v', (sim.v*3.6).toFixed(0), 'target', (target*3.6).toFixed(0), 'lim', (lim*3.6).toFixed(0), 'red', red && red.toFixed(0), 'thr', ctl.throttle.toFixed(2), 'brk', ctl.brake.toFixed(2), 'sig', trip.route.loops[0].signalS.toFixed(0));
-    if (process.env.DBG && i % 400 === 0) console.log(Math.round(trip.time), 's pos', Math.round(sim.s), '/', Math.round(trip.route.stopS), 'v', (sim.v*3.6).toFixed(0), 'target', (target*3.6).toFixed(0), 'thr', ctl.throttle.toFixed(2), 'brk', ctl.brake.toFixed(2), 'red', red, 'P', sim.steam?.pressure.toFixed(1), trip.toasts.map(t => t.text).slice(-1).join());
-  }
-}
+import { drive } from './helpers/bot';
 
 describe('déroulement d’une partie', () => {
   it('nouvelle partie : flotte de départ cohérente et sauvegarde fidèle', () => {

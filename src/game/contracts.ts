@@ -3,7 +3,7 @@ import { clamp } from '../core/util';
 import { GOODS, WAGONS, goodById, goodAvailable, wagonAvailable, wagonById, locoById, eraAt, type WagonDef } from '../data';
 import { rates, priceMul, passengerMul, popOf, yearOf } from '../economy/economy';
 import { distancesFrom, shortestPath } from '../world/graph';
-import { edgeUsable, edgeElectrified, yearNow, newGame, type Contract, type Game, fleetUnit, unitBusy } from './state';
+import { edgeUsable, edgeElectrified, yearNow, newGame, inflationAt, REVENUE_K, type Contract, type Game, fleetUnit, unitBusy } from './state';
 import type { Unit } from '../sim/train';
 
 export const MAX_VEHICLES = 24;
@@ -21,7 +21,7 @@ export function lineLimitKmh(g: Game, edges: number[]): number {
   return Math.min(era, ...edges.map(id => g.world.edges[id].maxSpeedKmh));
 }
 export function targetSeconds(g: Game, edges: number[], lengthM: number): number {
-  const v = lineLimitKmh(g, edges) * 0.72 / 3.6;
+  const v = lineLimitKmh(g, edges) * 0.62 / 3.6;
   return Math.round(lengthM / v + 90);
 }
 
@@ -29,13 +29,13 @@ export function quoteFreight(g: Game, from: number, to: number, goodId: string, 
   const good = goodById(goodId); const s = g.state;
   const wh = 1 + 0.08 * ((s.warehouses[from] ?? 0) + (s.warehouses[to] ?? 0));
   const rep = 0.9 + 0.2 * s.reputation / 100;
-  return Math.round(tonnes * good.rate * (lengthM / 1000) * (0.5 + 0.5 * destMul) * rep * wh);
+  return Math.round(tonnes * good.rate * (lengthM / 1000) * (0.5 + 0.5 * destMul) * rep * wh * REVENUE_K * inflationAt(yearNow(s)));
 }
 export function quotePax(g: Game, from: number, to: number, pax: { c1: number; c2: number; c3: number }, lengthM: number): number {
   const s = g.state; const km = lengthM / 1000;
   const wh = 1 + 0.08 * ((s.warehouses[from] ?? 0) + (s.warehouses[to] ?? 0));
   const rep = 0.9 + 0.2 * s.reputation / 100;
-  return Math.round((pax.c1 * PAX_RATE.c1 + pax.c2 * PAX_RATE.c2 + pax.c3 * PAX_RATE.c3) * km * rep * wh);
+  return Math.round((pax.c1 * PAX_RATE.c1 + pax.c2 * PAX_RATE.c2 + pax.c3 * PAX_RATE.c3) * km * rep * wh * REVENUE_K * inflationAt(yearNow(s)));
 }
 
 const boardCache = new Map<string, Contract[]>();
@@ -56,7 +56,7 @@ function generateBoard(g: Game, cityId: number, week: number): Contract[] {
   const year = yearNow(s);
   const rng = new Rng(hashInts(hashString(s.seed), cityId, week, 991));
   const { dist, hops } = distancesFrom(w, cityId, e => edgeUsable(g, e));
-  const vT = eraAt(year).lineSpeedKmh * 0.72 / 3.6;
+  const vT = eraAt(year).lineSpeedKmh * 0.62 / 3.6;
   const minD = Math.max(5500, vT * 60 * 4.5), maxD = Math.max(12500, vT * 60 * 10);
   const dests = w.cities.filter(c => c.id !== cityId && dist[c.id] >= minD && dist[c.id] <= maxD && hops[c.id] <= 3);
   const out: Contract[] = [];
@@ -116,7 +116,7 @@ function generateBoard(g: Game, cityId: number, week: number): Contract[] {
     const t = clamp(Math.round(Math.sqrt(here) * 1.2), 3, 16);
     out.push({
       id: `m${cityId}-${week}-${d.id}`, kind: 'mail', from: cityId, to: d.id, cities: p.cities, edges: p.edges, lengthM: p.lengthM, goodId: 'mail', tonnes: t,
-      reward: Math.round(t * goodById('mail').rate * (p.lengthM / 1000) * 1.6 * (0.9 + 0.2 * s.reputation / 100)), expiresDay: expires + 5, targetSec: targetSeconds(g, p.edges, p.lengthM) - 30,
+      reward: Math.round(t * goodById('mail').rate * (p.lengthM / 1000) * 1.6 * (0.9 + 0.2 * s.reputation / 100) * REVENUE_K * inflationAt(year)), expiresDay: expires + 5, targetSec: targetSeconds(g, p.edges, p.lengthM) - 30,
       wagonTypes: ['mail'], label: `Courrier et bagages → ${d.name}`, premium: true,
     });
   }

@@ -85,8 +85,14 @@ export function repairCostMul(eco: EconomyState): number {
 }
 export function closedEdges(eco: EconomyState): Set<number> {
   const s = new Set<number>();
-  for (const ev of eco.events) if (ev.edgeId !== undefined) s.add(ev.edgeId);
+  for (const ev of eco.events) if (ev.edgeId !== undefined && EVENTS.find(d => d.id === ev.defId)!.effects.some(e => e.type === 'closeEdge')) s.add(ev.edgeId);
   return s;
+}
+/** Sections de voie dégradées : limitation de vitesse (km/h) par arête. */
+export function slowEdges(eco: EconomyState): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const ev of eco.events) { if (ev.edgeId === undefined) continue; const ef = EVENTS.find(d => d.id === ev.defId)!.effects.find(e => e.type === 'slowEdge'); if (ef) m.set(ev.edgeId, ef.mul ?? 50); }
+  return m;
 }
 
 export function capacity(w: World, eco: EconomyState, year: number, cityId: number, good: string): number {

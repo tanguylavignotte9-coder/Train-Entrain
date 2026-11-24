@@ -30,7 +30,7 @@ export interface GameState {
   depots: Record<string, number>; warehouses: Record<string, number>;
   builtEdges: number[]; electrified: Record<string, number>;
   eco: EconomyState; contract: Contract | null; takenIds: string[]; jobs: WorkshopJob[]; ledger: LedgerEntry[];
-  stats: Stats; goalsDone: string[]; settings: Settings; rescues: number; message: string[];
+  stats: Stats; goalsDone: string[]; settings: Settings; rescues: number; message: string[]; acc: { overhead: number; interest: number };
 }
 export interface Game { state: GameState; world: World }
 
@@ -41,6 +41,9 @@ export function worldFor(seed: string): World {
   return w;
 }
 
+/** Inflation : les prix (revenus, frais, amendes) croissent avec les décennies. */
+export const inflationAt = (year: number) => 1 + 0.03 * (year - 1905);
+export const REVENUE_K = 3.2;
 export const yearNow = (s: GameState) => yearOf(s.startYear, s.day);
 export const dateNow = (s: GameState): DateInfo => dateOf(s.startYear, s.day);
 export const edgeActive = (s: GameState, e: Edge) => e.initial || s.builtEdges.includes(e.id);
@@ -72,7 +75,7 @@ export function addLedger(s: GameState, label: string, amount: number): void {
 }
 
 export function operatingOverhead(s: GameState): number {
-  return 1.5 + 0.25 * s.fleet.length + 2 * Object.keys(s.depots).length + 2 * Object.keys(s.warehouses).length;
+  return (1.5 + 0.25 * s.fleet.length + 2 * Object.keys(s.depots).length + 2 * Object.keys(s.warehouses).length) * inflationAt(yearNow(s));
 }
 
 export function loanLimit(s: GameState): number { return Math.round((8000 + s.reputation * 450 + Math.max(0, s.stats.maxMoney) * 0.05) / 500) * 500; }
@@ -94,7 +97,7 @@ export function newGame(opts: { seed?: string; startYear?: number; company?: str
     fleet: [], nextUid: 1, hq: hq.id, location: hq.id, locoUid: null, consistUids: [],
     depots: { [hq.id]: 1 }, warehouses: {}, builtEdges: [], electrified: {}, eco, contract: null, takenIds: [], jobs: [], ledger: [],
     stats: { trips: 0, deliveries: 0, tonnes: 0, passengers: 0, km: 0, regionsServed: [], tractions: [], crisesSurvived: 0, accidents: 0, onTime: 0, built: 0, earned: 0, maxMoney: 0, electrified: 0, breakdowns: 0 },
-    goalsDone: [], settings: { volume: 0.7, music: 0.5, hints: true }, rescues: 0, message: [],
+    goalsDone: [], settings: { volume: 0.7, music: 0.5, hints: true }, rescues: 0, message: [], acc: { overhead: 0, interest: 0 },
   };
   // préchauffage de l'économie (dynamique visible dès le départ)
   for (let d = 1; d <= 40; d++) stepEconomyDay(world, eco, seed, startYear, d);
@@ -139,8 +142,13 @@ function dailyTick(g: Game, dayOverride?: number): void {
   for (const ev of started) s.message.push(ev.text);
   for (const ev of ended) { if (!ev.positive && s.money >= 0) s.stats.crisesSurvived++; }
   // frais
-  addLedger(s, 'Frais de fonctionnement', -operatingOverhead(s));
-  if (s.loan > 0) { const i = s.loan * 0.06 / 365; addLedger(s, 'Intérêts du prêt', -i); }
+  const oh = operatingOverhead(s); s.money -= oh; s.acc.overhead += oh;
+  if (s.loan > 0) { const i = s.loan * 0.06 / 365; s.money -= i; s.acc.interest += i; }
+  if (day % 30 === 0) {
+    if (s.acc.overhead > 0) { s.ledger.unshift({ day, label: 'Frais de fonctionnement (30 j)', amount: -Math.round(s.acc.overhead) }); s.acc.overhead = 0; }
+    if (s.acc.interest > 0) { s.ledger.unshift({ day, label: 'Intérêts du prêt (30 j)', amount: -Math.round(s.acc.interest) }); s.acc.interest = 0; }
+    if (s.ledger.length > 300) s.ledger.length = 300;
+  }
   // chantiers d'atelier terminés
   const done = s.jobs.filter(j => j.readyDay <= day);
   if (done.length) { s.jobs = s.jobs.filter(j => j.readyDay > day); for (const j of done) s.message.push(`Atelier : ${j.label} terminé.`); }

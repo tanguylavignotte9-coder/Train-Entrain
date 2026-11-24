@@ -6,7 +6,8 @@ import { weatherAt, daylight, dateOf, type Weather } from '../sim/weather';
 import {
   buildRoute, routeCurv, routeElectrified, routeGrade, routeLimit, routeTunnel, routeElev, routeEdgeIndex, type Route, type Feature, type LoopInfo,
 } from '../world/track';
-import { edgeElectrified, yearNow, type Contract, type Game } from './state';
+import { slowEdges } from '../economy/economy';
+import { edgeElectrified, yearNow, inflationAt, type Contract, type Game } from './state';
 
 export interface Toast { id: number; t: number; text: string; kind: 'info' | 'warn' | 'bad' | 'good' }
 export interface Fine { label: string; amount: number }
@@ -42,8 +43,9 @@ export class Trip {
     this.eraLimit = eraAt(year).lineSpeedKmh;
     this.seed = hashInts(hashString(s.seed), Math.floor(s.day), contract.edges.length * 31 + contract.from);
     this.rng = new Rng(this.seed);
+    const slow = slowEdges(s.eco);
     const trainLen = units.reduce((a, u) => a + (u.kind === 'loco' ? locoById(u.defId).lengthM : wagonById(u.defId).lengthM) + 0.5, 0);
-    this.route = buildRoute(w, contract.cities, contract.edges, { trainLength: trainLen, year, seed: s.seed, day: Math.floor(s.day), electrifiedOf: e => edgeElectrified(s, e) }, this.eraLimit);
+    this.route = buildRoute(w, contract.cities, contract.edges, { trainLength: trainLen, year, seed: s.seed, day: Math.floor(s.day), electrifiedOf: e => edgeElectrified(s, e), slowKmh: e => slow.get(e.id) }, this.eraLimit);
     const r = this.route;
     const track: TrackAccess = {
       grade: p => routeGrade(r, p), curv: p => routeCurv(r, p), electrified: p => routeElectrified(r, p), tunnel: p => routeTunnel(r, p),
@@ -69,7 +71,7 @@ export class Trip {
     // coef. de confort des voitures
     const coaches = units.filter(u => u.kind === 'wagon' && wagonById(u.defId).type === 'coach');
     this.comfortBase = coaches.length ? coaches.reduce((a, u) => a + wagonById(u.defId).comfort + 0.08 * (u.upgrades.comfort ?? 0), 0) / coaches.length : 0.5;
-    this.toast(`Départ de ${w.cities[contract.from].name}. Bon voyage !`, 'info');
+    this.toast(`Départ de ${w.cities[contract.from].name}. Desserrez le frein (→) puis ajoutez de la traction (W).`, 'info');
   }
 
   get elapsed() { return this.time; }
@@ -165,7 +167,7 @@ export class Trip {
     this.checkEnd(dt);
   }
 
-  private fine(label: string, amount: number) { this.fines.push({ label, amount }); this.toast(`Amende : ${label} (${amount} Cr)`, 'bad'); }
+  private fine(label: string, amount: number) { amount = Math.round(amount * inflationAt(yearNow(this.g.state))); this.fines.push({ label, amount }); this.toast(`Amende : ${label} (${amount} Cr)`, 'bad'); }
 
   private checkLimits(dt: number) {
     const sim = this.sim;
@@ -216,7 +218,7 @@ export class Trip {
     r.loops.forEach((L, i) => {
       if (!L.pnj || !this.spadDone.has(i) || this.pnjHit) return;
       const p = this.pnjPos(L);
-      if (this.time >= L.spawnT && Math.abs(p - sim.s) < 22 && sim.s > L.exitS) {
+      if (this.time >= L.spawnT && Math.abs(p - sim.s) < 22 && sim.s > L.signalS + 25) {
         this.pnjHit = true; this.accidents++;
         this.fine('Collision avec un train adverse', 4500);
         this.toast('COLLISION ! Les deux trains se sont percutés.', 'bad');
@@ -321,7 +323,7 @@ export class Trip {
     void kind;
     return {
       status: this.status, timeSec: this.time, targetSec: c.targetSec, stopError: this.stopError, bufferSpeed: this.bufferSpeed, comfort, cargoCondition: cargo,
-      fines: this.fines, breakdowns: this.breakdowns, accidents: this.accidents, energyCost: Math.round(eKWh * 0.06), towFee: this.towRequested || this.status === 'wrecked' ? Math.round(700 + c.lengthM * 0.06) : 0,
+      fines: this.fines, breakdowns: this.breakdowns, accidents: this.accidents, energyCost: Math.round(eKWh * 0.06 * inflationAt(yearNow(this.g.state))), towFee: this.towRequested || this.status === 'wrecked' ? Math.round((700 + c.lengthM * 0.06) * inflationAt(yearNow(this.g.state))) : 0,
       rentCost: this.rentCost, loaded: tonnes, contract: c,
     };
   }

@@ -5,6 +5,7 @@ import wagonsJson from './wagons.json';
 import upgradesJson from './upgrades.json';
 import erasJson from './eras.json';
 import eventsJson from './events.json';
+import partsJson from './parts.json';
 
 export type Traction = 'steam' | 'diesel' | 'electric';
 export type WagonType = 'coach' | 'mail' | 'open' | 'flat' | 'covered' | 'cattle' | 'tank' | 'reefer' | 'container';
@@ -28,6 +29,8 @@ export interface EraDef { from: number; name: string; lineSpeedKmh: number; expe
 export interface EventEffect { type: string; good?: string; mul?: number; pct?: number }
 export interface EventDef { id: string; name: string; text: string; weight: number; scope: 'city' | 'region' | 'global' | 'edge'; minDays: number; maxDays: number; effects: EventEffect[]; positive?: boolean; startYear?: number; endYear?: number }
 
+export interface PartDef { name: string; share: number; days: number; wearPerKm: number; hazard: number; desc: string; names?: Record<string, string> }
+export const PART_DEFS = partsJson as unknown as Record<'wheels' | 'axles' | 'brakes' | 'powerplant' | 'lubrication' | 'couplings', PartDef>;
 export const GOODS = goodsJson as unknown as GoodDef[];
 export const INDUSTRIES = industriesJson as unknown as IndustryDef[];
 export const LOCOS = locomotivesJson as unknown as LocoDef[];

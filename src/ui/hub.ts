@@ -167,7 +167,7 @@ export class Hub {
     const s = this.s, lvl = A.workshopLevel(this.g);
     if (lvl < 1) return `<h2>Atelier</h2><div class="warn-box">Il n’y a pas d’atelier à ${esc(this.w.cities[s.location].name)}. Rendez-vous dans une ville dotée d’un dépôt (★ carré doré sur la carte) ou construisez-en un dans l’onglet Réseau.</div>${this.unitTable(false)}`;
     const u = this.selUnit !== null ? fleetUnit(s, this.selUnit) : undefined;
-    const price = Math.round(A.PARTS_PRICE * (1 - 0.05 * (lvl - 1)));
+    const price = A.partsPrice(this.g);
     return `<div style="display:flex;align-items:center;gap:14px"><h2 style="margin:0">Atelier niveau ${lvl}</h2><span class="dim small">Pièces en stock : <b class="ink">${s.parts}</b></span>
       <button class="small" data-act="parts" data-n="5">+5 pièces (${fmtMoney(price * 5)})</button><button class="small" data-act="parts" data-n="20">+20 (${fmtMoney(price * 20)})</button></div>
       <div class="grid2" style="margin-top:10px"><div>${this.unitTable(true)}</div><div>${u ? this.unitDetail(u) : '<div class="panel dim">Sélectionnez un matériel pour inspecter, réparer ou améliorer.</div>'}</div></div>`;
@@ -193,7 +193,7 @@ export class Hub {
       ${this.workshopTab === 'etat' ? `
       <table>${parts.map(p => { const e = A.estimatedCond(this.g, u, p); return `<tr><td style="width:24px"><input type="checkbox" data-act="rp" data-p="${p}" ${this.repairSel.has(p) ? 'checked' : ''} ${busy ? 'disabled' : ''}></td><td>${partName(p, traction)}</td><td style="width:42%">${bar(e.value, condCls(e.value), e.err)}</td><td class="n">${Math.round(e.value * 100)} % <span class="dim small">±${Math.round(e.err * 100)}</span></td></tr>`; }).join('')}</table>
       <div class="small dim" style="margin:8px 0">Sélection : ${chosen.length ? `${fmtMoney(q.cost)} · ${q.partsNeeded} pièces · ${q.days} jours d’immobilisation` : 'aucune pièce'}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap"><button data-act="inspect" ${busy ? 'disabled' : ''}>Inspecter (${fmtMoney(A.INSPECT_PRICE[u.kind])})</button><button class="primary" data-act="repair" ${chosen.length && !busy ? '' : 'disabled'}>Réparer la sélection</button><button data-act="overhaul" ${busy ? 'disabled' : ''}>Révision générale</button></div>` :
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button data-act="inspect" ${busy ? 'disabled' : ''}>Inspecter (${fmtMoney(A.inspectPrice(this.g, u.kind))})</button><button class="primary" data-act="repair" ${chosen.length && !busy ? '' : 'disabled'}>Réparer la sélection</button><button data-act="overhaul" ${busy ? 'disabled' : ''}>Révision générale</button></div>` :
       `<div class="list">${up.map(x => { const uq = A.upgradeQuote(u, x.id)!; return `<div class="row"><div class="grow"><div class="t">${esc(x.name)} <span class="badge">niv. ${uq.level}/${uq.max}</span></div><div class="s">${esc(x.effect)}</div></div>${uq.level < uq.max ? `<button class="small primary" data-act="upgrade" data-u="${x.id}">${fmtMoney(uq.price)}</button>` : '<span class="good">max</span>'}</div>`; }).join('') || '<div class="dim">Aucune amélioration disponible.</div>'}</div>`}
     </div>`;
   }

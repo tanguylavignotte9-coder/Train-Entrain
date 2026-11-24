@@ -1,10 +1,10 @@
 import { clamp } from '../core/util';
-import { LOCOS, WAGONS, UPGRADES, locoAvailable, wagonAvailable, locoById, wagonById, type LocoDef, type WagonDef, goodById } from '../data';
+import { PART_DEFS, LOCOS, WAGONS, UPGRADES, locoAvailable, wagonAvailable, locoById, wagonById, type LocoDef, type WagonDef, goodById } from '../data';
 import { repairCostMul, priceMul, yearOf } from '../economy/economy';
 import { PARTS, newCond, type Part, type Unit } from '../sim/train';
 import { hashInts, hashString } from '../core/rng';
 import {
-  addLedger, advanceDays, edgeActive, fleetUnit, loanLimit, newUnit, unitBusy, unitDef, yearNow, edgeElectrified, cityConnected,
+  addLedger, advanceDays, edgeActive, fleetUnit, loanLimit, inflationAt, newUnit, unitBusy, unitDef, yearNow, edgeElectrified, cityConnected,
   type Contract, type Game,
 } from './state';
 import { clearBoardCache, evaluateContract, loadTrain, PAX_KG, wagonMatches } from './contracts';
@@ -77,11 +77,11 @@ export function toggleConsist(g: Game, uid: number): Res {
 export const COAL_PRICE = 0.07, WATER_PRICE = 0.003, DIESEL_PRICE = 0.55, POWER_PRICE = 0.06;
 export function fuelState(u: Unit): { fuel: number; water: number } { return { fuel: u.fuel ?? 1, water: u.water ?? 1 }; }
 export function refuelCost(g: Game, u: Unit): number {
-  const d = locoById(u.defId); const f = fuelState(u);
+  const d = locoById(u.defId); const f = fuelState(u); const k = inflationAt(yearNow(g.state));
   const cap = 1 + 0.2 * (u.upgrades.capacity ?? 0);
-  if (d.steam) return Math.round((1 - f.fuel) * d.steam.coalKg * cap * COAL_PRICE + (1 - f.water) * d.steam.waterKg * cap * WATER_PRICE);
-  if (d.diesel) return Math.round((1 - f.fuel) * d.diesel.fuelL * cap * DIESEL_PRICE);
-  if (d.electric?.fuelL) return Math.round((1 - f.fuel) * d.electric.fuelL * cap * DIESEL_PRICE);
+  if (d.steam) return Math.round(((1 - f.fuel) * d.steam.coalKg * cap * COAL_PRICE + (1 - f.water) * d.steam.waterKg * cap * WATER_PRICE) * k);
+  if (d.diesel) return Math.round((1 - f.fuel) * d.diesel.fuelL * cap * DIESEL_PRICE * k);
+  if (d.electric?.fuelL) return Math.round((1 - f.fuel) * d.electric.fuelL * cap * DIESEL_PRICE * k);
   return 0;
 }
 export function refuel(g: Game, uid: number): Res {
@@ -93,9 +93,11 @@ export function refuel(g: Game, uid: number): Res {
 }
 
 // ---------- Atelier ----------
-const PART_SHARE: Record<Part, number> = { wheels: 0.12, axles: 0.10, brakes: 0.10, powerplant: 0.34, lubrication: 0.02, couplings: 0.04 };
-const PART_DAYS: Record<Part, number> = { wheels: 20, axles: 25, brakes: 15, powerplant: 50, lubrication: 5, couplings: 10 };
+const PART_SHARE = Object.fromEntries(Object.entries(PART_DEFS).map(([k, v]) => [k, v.share])) as Record<Part, number>;
+const PART_DAYS = Object.fromEntries(Object.entries(PART_DEFS).map(([k, v]) => [k, v.days])) as Record<Part, number>;
 export const PARTS_PRICE = 45;
+export const partsPrice = (g: Game) => Math.round(PARTS_PRICE * inflationAt(yearNow(g.state)) * (1 - 0.05 * (workshopLevel(g) - 1)));
+export const inspectPrice = (g: Game, kind: 'loco' | 'wagon') => Math.round(INSPECT_PRICE[kind] * inflationAt(yearNow(g.state)) * (1 - 0.1 * (workshopLevel(g) - 1)));
 
 export function repairQuote(g: Game, u: Unit, parts: Part[]): { cost: number; partsNeeded: number; days: number } {
   const d = unitDef(u); const lvl = Math.max(1, workshopLevel(g));
@@ -114,7 +116,7 @@ export function repairQuote(g: Game, u: Unit, parts: Part[]): { cost: number; pa
 }
 export function buyParts(g: Game, n: number): Res {
   const s = g.state; if (!hasDepot(g)) return no('Les pièces se commandent au dépôt.');
-  const price = Math.round(PARTS_PRICE * (1 - 0.05 * (workshopLevel(g) - 1)));
+  const price = Math.round(PARTS_PRICE * inflationAt(yearNow(s)) * (1 - 0.05 * (workshopLevel(g) - 1)));
   if (s.money < price * n) return no('Fonds insuffisants.');
   addLedger(s, `Pièces détachées ×${n}`, -price * n); s.parts += n; return ok(`${n} pièces achetées.`);
 }
@@ -142,7 +144,7 @@ export const INSPECT_PRICE = { loco: 45, wagon: 12 };
 export function inspect(g: Game, uid: number): Res {
   const s = g.state, u = fleetUnit(s, uid); if (!u) return no('Matériel introuvable.');
   if (workshopLevel(g) < 1) return no('Inspection possible dans un atelier uniquement.');
-  const c = Math.round(INSPECT_PRICE[u.kind] * (1 - 0.1 * (workshopLevel(g) - 1)));
+  const c = Math.round(INSPECT_PRICE[u.kind] * inflationAt(yearNow(s)) * (1 - 0.1 * (workshopLevel(g) - 1)));
   if (s.money < c) return no('Fonds insuffisants.');
   addLedger(s, `Inspection : ${unitDef(u).name}`, -c); u.inspectedKm = u.km; u.inspectedDay = s.day;
   return ok('Inspection terminée : l’état est connu avec précision.');

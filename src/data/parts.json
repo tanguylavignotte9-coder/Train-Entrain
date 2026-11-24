@@ -1,0 +1,8 @@
+{
+  "wheels":      { "name": "Roues",         "share": 0.12, "days": 20, "wearPerKm": 0.0030, "hazard": 1.0, "desc": "Usure du profil, méplats : vibrations puis roue fendue." },
+  "axles":       { "name": "Essieux",       "share": 0.10, "days": 25, "wearPerKm": 0.0016, "hazard": 1.0, "desc": "Fatigue des fusées, boîtes chaudes si le graissage manque." },
+  "brakes":      { "name": "Freins",        "share": 0.10, "days": 15, "wearPerKm": 0.0000, "hazard": 1.0, "desc": "Sabots ou disques : l'usure suit l'énergie dissipée, la surchauffe l'accélère." },
+  "powerplant":  { "name": "Groupe moteur", "share": 0.34, "days": 50, "wearPerKm": 0.0030, "hazard": 1.0, "desc": "Chaudière, moteur diesel ou moteurs de traction.", "names": { "steam": "Chaudière", "diesel": "Moteur diesel", "electric": "Moteurs de traction" } },
+  "lubrication": { "name": "Graissage",     "share": 0.02, "days": 5,  "wearPerKm": 0.0045, "hazard": 1.0, "desc": "Huile et graisse : un graissage usé accroît frottements et chaleur." },
+  "couplings":   { "name": "Attelages",     "share": 0.04, "days": 10, "wearPerKm": 0.0012, "hazard": 0.5, "desc": "Crochets et tendeurs : rupture sous forte traction." }
+}

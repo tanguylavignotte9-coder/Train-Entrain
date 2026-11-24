@@ -232,7 +232,7 @@ export class DriveHud {
     // panne
     const bp = $(r, 'brk-panel');
     const stopped = Math.abs(sim.v) < 0.3;
-    if ((stopped && sim.hasFault() && trip.status === 'running') || trip.repairing) {
+    if ((stopped && sim.hasFault() && trip.status === 'running' && (trip.distToStop() > 60 || sim.faults.stalled || sim.faults.couplingBroken || sim.faults.speedCap <= 3.01)) || trip.repairing) {
       bp.style.display = '';
       const parts = trip.g.state.parts;
       bp.innerHTML = `<div class="break-panel"><h3 style="margin-top:0">${trip.repairing ? 'Réparation en cours…' : 'Panne en ligne'}</h3>

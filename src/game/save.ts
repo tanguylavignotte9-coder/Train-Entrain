@@ -48,6 +48,7 @@ export function migrate(state: any, from: number): GameState {
   s.version = SAVE_VERSION;
   s.message = s.message ?? [];
   s.takenIds = s.takenIds ?? [];
+  s.acc = s.acc ?? { overhead: 0, interest: 0 };
   return s as GameState;
 }
 

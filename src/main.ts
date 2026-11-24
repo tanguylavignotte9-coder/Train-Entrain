@@ -7,6 +7,7 @@ import { Trip } from './game/trip';
 import { settleTrip, type Settlement } from './game/settle';
 import { addLedger } from './game/state';
 import { SceneRenderer, VW, VH } from './render/scene';
+import { loadAssetOverrides } from './render/sprites';
 import { Hub, esc, type AppApi } from './ui/hub';
 import { DriveHud } from './ui/hud';
 import { audio } from './audio/audio';
@@ -226,10 +227,10 @@ class App implements AppApi {
       } else { t.ctl.brake = 1; t.ctl.throttle = 0; t.ctl.shovel = false; if (sim.steam) t.ctl.injector = sim.steam.level < 0.4; t.update(dt); }
       this.scene.render(dt); ctx.drawImage(this.scene.cv, 0, 0);
     } else { ctx.fillStyle = '#1b2230'; ctx.fillRect(0, 0, VW, VH); }
-    if (this.game && this.mode === 'hub') { advanceSeconds(this.game, 0); this.autoT += dt; }
   }
 }
 function locoByPref(id: string) { try { return locoById(id); } catch { return null; } }
 void ERAS; void worldFor; void yearNow; void fmtDate; void dateOf; void yearOf;
 
+loadAssetOverrides();
 (window as any).app = new App();

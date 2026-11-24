@@ -274,7 +274,25 @@ function wagonSprite(d: WagonDef, uid: number, cargoColor?: string, loadFrac = 0
   return { canvas: cv, w: L, h: H, wheels, axleY: 6, windows: win, couplerY: 7, tail: { x: 0, y: 12 } };
 }
 
+// ---------------------------------------------------------------- surcharges d'assets (PNG)
+interface AssetMeta { file: string; axleY?: number; wheels?: { x: number; r: number; driver?: boolean }[]; chimney?: { x: number; y: number }; headlight?: { x: number; y: number }; whistle?: { x: number; y: number } }
+const overrides = new Map<string, VehicleSprite>();
+export function loadAssetOverrides(): void {
+  const assets = (window as unknown as { TRAIN_ASSETS?: { sprites?: Record<string, AssetMeta> } }).TRAIN_ASSETS;
+  if (!assets?.sprites) return;
+  for (const [id, meta] of Object.entries(assets.sprites)) {
+    const img = new Image();
+    img.onload = () => {
+      const cv = makeCanvas(img.width, img.height); ctx2d(cv).drawImage(img, 0, 0);
+      overrides.set(id, { canvas: cv, w: img.width, h: img.height, wheels: meta.wheels ?? [{ x: Math.round(img.width * 0.2), r: 3 }, { x: Math.round(img.width * 0.8), r: 3 }], axleY: meta.axleY ?? 6, windows: [], chimney: meta.chimney, headlight: meta.headlight, whistle: meta.whistle, couplerY: 7 });
+      cache.clear();
+    };
+    img.src = 'assets/' + meta.file;
+  }
+}
+
 export function vehicleSprite(defId: string, kind: 'loco' | 'wagon', uid = 0, cargo?: string, loadFrac = 0): VehicleSprite {
+  const ov = overrides.get(defId); if (ov) return ov;
   const lf = Math.round(loadFrac * 4) / 4;
   const key = `${defId}|${kind === 'wagon' ? uid % 6 : 0}|${cargo ?? ''}|${lf}`;
   let s = cache.get(key); if (s) return s;

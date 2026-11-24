@@ -71,13 +71,13 @@ export function edgeProfile(w: World, e: Edge): EdgeProfile {
   // courbes
   const curv = new Float32Array(n + 1);
   const m = e.mountain;
-  let s = rng.range(15, 60);
+  let s = Math.round(rng.range(15, 60));
   while (s < n - 25) {
     const len = Math.round(rng.range(12, 50) * (1 - m * 0.3));
     const R = m > 0.45 ? rng.range(200, 900) : rng.range(450, 3500);
     const sign = rng.chance(0.5) ? 1 : -1;
     for (let k = 0; k < len && s + k <= n - 20; k++) curv[s + k] = sign / R;
-    s += len + Math.round(rng.range(15, 90) * (1.3 - m));
+    s += len + Math.max(1, Math.round(rng.range(15, 90) * (1.3 - m)));
   }
   const p: EdgeProfile = { edgeId: e.id, n, elev: t, ground, curv, tunnel, bridge };
   cache.set(key, p);
@@ -97,7 +97,7 @@ export interface Route {
   year: number; electricRequired: boolean; hasUnelectrified: boolean;
 }
 
-export interface RouteOptions { trainLength: number; year: number; seed: string; day: number; electrifiedOf: (e: Edge) => boolean }
+export interface RouteOptions { trainLength: number; year: number; seed: string; day: number; electrifiedOf: (e: Edge) => boolean; slowKmh?: (e: Edge) => number | undefined }
 
 export function lineSpeedLimit(e: Edge, eraKmh: number): number { return Math.min(e.maxSpeedKmh, eraKmh); }
 
@@ -124,7 +124,8 @@ export function buildRoute(w: World, cityPath: number[], edgePath: number[], opt
     const pr = edgeProfile(w, e); const rev = reversed[ei];
     const el = opt.electrifiedOf(e);
     if (!el) hasUnel = true;
-    const vLine = lineSpeedLimit(e, eraKmh) * KMH;
+    const slow = opt.slowKmh?.(e);
+    const vLine = Math.min(lineSpeedLimit(e, eraKmh), slow ?? 999) * KMH;
     for (let i = 0; i <= pr.n; i++) {
       const src = rev ? pr.n - i : i;
       const gi = Math.round((cur + i * DS) / DS);

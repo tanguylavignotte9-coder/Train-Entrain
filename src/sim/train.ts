@@ -1,16 +1,13 @@
 import { Rng } from '../core/rng';
 import { clamp, G, lerp } from '../core/util';
-import { locoById, wagonById, type LocoDef, type WagonDef } from '../data';
+import { locoById, wagonById, PART_DEFS, type LocoDef, type WagonDef } from '../data';
 
 export const PARTS = ['wheels', 'axles', 'brakes', 'powerplant', 'lubrication', 'couplings'] as const;
 export type Part = typeof PARTS[number];
 export type Cond = Record<Part, number>;
-export const PART_NAMES: Record<Part, string> = {
-  wheels: 'Roues', axles: 'Essieux', brakes: 'Freins', powerplant: 'Groupe moteur', lubrication: 'Graissage', couplings: 'Attelages',
-};
+export const PART_NAMES = Object.fromEntries(PARTS.map(p => [p, PART_DEFS[p].name])) as Record<Part, string>;
 export function partName(p: Part, traction?: string): string {
-  if (p !== 'powerplant') return PART_NAMES[p];
-  return traction === 'steam' ? 'Chaudière' : traction === 'electric' ? 'Moteurs de traction' : traction === 'diesel' ? 'Moteur diesel' : 'Groupe moteur';
+  return (traction && PART_DEFS[p].names?.[traction]) || PART_DEFS[p].name;
 }
 export const newCond = (v = 1): Cond => ({ wheels: v, axles: v, brakes: v, powerplant: v, lubrication: v, couplings: v });
 
@@ -406,11 +403,12 @@ export class TrainSim {
       const u = v.unit; const heavy = i === 0 ? loadF : 1 + v.unit.loadT / 80;
       u.km += dKm;
       const up = (k: string) => 1 - 0.0 * (u.upgrades[k] ?? 0);
-      u.cond.wheels = Math.max(0, u.cond.wheels - 0.0030 * dKm * heavy * weather * up('x'));
-      u.cond.axles = Math.max(0, u.cond.axles - 0.0016 * dKm * heavy * (1 + 1.5 * (1 - u.cond.lubrication)));
-      u.cond.lubrication = Math.max(0, u.cond.lubrication - 0.0045 * dKm);
-      u.cond.couplings = Math.max(0, u.cond.couplings - 0.0012 * dKm * heavy);
-      if (i === 0) u.cond.powerplant = Math.max(0, u.cond.powerplant - 0.0030 * dKm * loadF * steam * (1 - 0.06 * (u.upgrades.engine ?? 0)));
+      const W = (p: Part) => PART_DEFS[p].wearPerKm * dKm;
+      u.cond.wheels = Math.max(0, u.cond.wheels - W('wheels') * heavy * weather * up('x'));
+      u.cond.axles = Math.max(0, u.cond.axles - W('axles') * heavy * (1 + 1.5 * (1 - u.cond.lubrication)));
+      u.cond.lubrication = Math.max(0, u.cond.lubrication - W('lubrication'));
+      u.cond.couplings = Math.max(0, u.cond.couplings - W('couplings') * heavy);
+      if (i === 0) u.cond.powerplant = Math.max(0, u.cond.powerplant - W('powerplant') * loadF * steam * (1 - 0.06 * (u.upgrades.engine ?? 0)));
     });
   }
 
@@ -440,7 +438,7 @@ export class TrainSim {
     this.vehicles.forEach((v, i) => {
       for (const p of PARTS) {
         if (p === 'powerplant' && i > 0) continue;
-        const h = this.hazard(v.unit.cond[p]) * base * stress * (p === 'axles' && v.unit.cond.lubrication < 0.3 ? 3 : 1) * (p === 'couplings' ? 0.5 : 1);
+        const h = this.hazard(v.unit.cond[p]) * base * stress * (p === 'axles' && v.unit.cond.lubrication < 0.3 ? 3 : 1) * PART_DEFS[p].hazard;
         if (h > 0 && this.rng.next() < h) { this.applyFailure(p, i); return; }
       }
     });
