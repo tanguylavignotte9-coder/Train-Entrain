@@ -6,7 +6,18 @@ import { dateOf, fmtDate } from '../sim/weather';
 import { yearNow } from '../game/state';
 import { audio } from '../audio/audio';
 
-const $ = (el: HTMLElement, r: string) => el.querySelector(`[data-r="${r}"]`) as HTMLElement;
+const refCache = new WeakMap<HTMLElement, Map<string, HTMLElement | null>>();
+const $ = (el: HTMLElement, r: string) => {
+  let m = refCache.get(el); if (!m) { m = new Map(); refCache.set(el, m); }
+  let v = m.get(r); if (v === undefined || (v && !v.isConnected)) { v = el.querySelector(`[data-r="${r}"]`) as HTMLElement | null; m.set(r, v); }
+  return v as HTMLElement;
+};
+const last = new WeakMap<HTMLElement, Record<string, string>>();
+/** N'écrit dans le DOM que si la valeur a changé (évite recalculs de mise en page à chaque image). */
+function put(el: HTMLElement | null, key: string, val: string, apply: (e: HTMLElement, v: string) => void) {
+  if (!el) return; let c = last.get(el); if (!c) { c = {}; last.set(el, c); }
+  if (c[key] === val) return; c[key] = val; apply(el, val);
+}
 
 function dial(id: string, max: number, major: number, redFrom: number, unit: string, size = 170): string {
   const cx = 85, cy = 85, R = 70;
@@ -158,11 +169,11 @@ export class DriveHud {
 
   private bar(name: string, frac: number, txt?: string, cls = '') {
     const el = $(this.root, name); if (!el) return;
-    el.style.width = `${clamp(frac, 0, 1) * 100}%`;
-    const p = el.parentElement!; p.classList.remove('low', 'mid'); if (cls) p.classList.add(cls);
-    if (txt !== undefined) { const t = $(this.root, name + 'txt'); if (t) t.textContent = txt; }
+    put(el, 'w', `${Math.round(clamp(frac, 0, 1) * 500) / 5}%`, (e, v) => { e.style.width = v; });
+    put(el, 'c', cls, (e, v) => { const p = e.parentElement!; p.classList.remove('low', 'mid'); if (v) p.classList.add(v); });
+    if (txt !== undefined) { const t = $(this.root, name + 'txt'); put(t, 't', txt, (e, v) => { e.textContent = v; }); }
   }
-  private setNeedle(id: string, val: number, max: number) { const n = $(this.root, id + '-needle'); if (n) n.setAttribute('transform', `rotate(${-120 + 240 * clamp(val / max, 0, 1.03)} 85 85)`); }
+  private setNeedle(id: string, val: number, max: number) { const n = $(this.root, id + '-needle'); put(n, 'r', `rotate(${(-120 + 240 * clamp(val / max, 0, 1.03)).toFixed(1)} 85 85)`, (e, v) => e.setAttribute('transform', v)); }
 
   update() {
     const trip = this.trip, sim = trip.sim, r = this.root, c = trip.ctl;
@@ -170,21 +181,21 @@ export class DriveHud {
     const lim = Math.min(trip.currentLimit(), sim.maxSpeedAllowed);
     this.setNeedle('spd', kmh, this.dialMax);
     const ln = $(r, 'spd-lim'); ln.setAttribute('transform', `rotate(${-120 + 240 * clamp(toKmh(lim) / this.dialMax, 0, 1)} 85 85)`);
-    $(r, 'spd-txt').textContent = String(Math.round(kmh));
-    const ls = $(r, 'limsign'); ls.textContent = String(Math.round(toKmh(lim) / 5) * 5); ls.style.borderColor = kmh > toKmh(lim) * 1.06 + 1 ? '#ff2a1a' : '#d4302c';
+    put($(r, 'spd-txt'), 't', String(Math.round(kmh)), (e, v) => { e.textContent = v; });
+    const ls = $(r, 'limsign'); put(ls, 't', String(Math.round(toKmh(lim) / 5) * 5), (e, v) => { e.textContent = v; }); ls.style.borderColor = kmh > toKmh(lim) * 1.06 + 1 ? '#ff2a1a' : '#d4302c';
     const d = dateOf(trip.g.state.startYear, trip.g.state.day);
     const hr = trip.hour % 24;
-    $(r, 'clock').innerHTML = `${fmtDate(d)} · <b>${String(Math.floor(hr)).padStart(2, '0')}:${String(Math.floor((hr % 1) * 60)).padStart(2, '0')}</b>`;
-    $(r, 'weather').textContent = weatherDescription(trip.weather);
-    const tEl = $(r, 'time'); tEl.textContent = fmtTime(trip.time); tEl.style.color = trip.time > trip.contract.targetSec * 1.25 ? '#d0604a' : '';
-    const dist = trip.distToStop(); $(r, 'dist').textContent = dist > 1000 ? (dist / 1000).toFixed(1) + ' km' : Math.max(0, Math.round(dist)) + ' m';
+    put($(r, 'clock'), 'h', `${fmtDate(d)} · ${Math.floor(hr)}:${Math.floor((hr % 1) * 60)}`, (e) => { e.innerHTML = `${fmtDate(d)} · <b>${String(Math.floor(hr)).padStart(2, '0')}:${String(Math.floor((hr % 1) * 60)).padStart(2, '0')}</b>`; });
+    put($(r, 'weather'), 't', weatherDescription(trip.weather), (e, v) => { e.textContent = v; });
+    const tEl = $(r, 'time'); put(tEl, 't', fmtTime(trip.time), (e, v) => { e.textContent = v; }); tEl.style.color = trip.time > trip.contract.targetSec * 1.25 ? '#d0604a' : '';
+    const dist = trip.distToStop(); put($(r, 'dist'), 't', dist > 1000 ? (dist / 1000).toFixed(1) + ' km' : Math.max(0, Math.round(dist / 5) * 5) + ' m', (e, v) => { e.textContent = v; });
     // leviers
-    const sync = (name: string, v: number, txt: string, vname: string) => { const el = $(r, name) as HTMLInputElement | null; if (el && !this.dragging.has(name)) el.value = String(v); const t = $(r, vname); if (t) t.textContent = txt; };
+    const sync = (name: string, v: number, txt: string, vname: string) => { const el = $(r, name) as HTMLInputElement | null; if (el && !this.dragging.has(name)) put(el, 'v', String(v), (e, x) => { (e as HTMLInputElement).value = x; }); put($(r, vname), 't', txt, (e, v) => { e.textContent = v; }); };
     sync('s-thr', Math.round(c.throttle * 100), `${Math.round(c.throttle * 100)} %`, 'v-thr');
     sync('s-brk', Math.round(c.brake * 100), `${Math.round(c.brake * 100)} %`, 'v-brk');
     sync('s-cut', Math.round(c.cutoff * 100), `${Math.round(c.cutoff * 100)} %`, 'v-cut');
     sync('s-dyn', Math.round(c.dyn * 100), `${Math.round(c.dyn * 100)} %`, 'v-dyn');
-    const tg = (name: string, on: boolean) => { const el = $(r, name); if (el) el.classList.toggle('on', on); };
+    const tg = (name: string, on: boolean) => { const el = $(r, name); if (el) put(el, 'on', String(on), (e, v) => e.classList.toggle('on', v === 'true')); };
     tg('b-shovel', c.shovel); tg('b-inj', c.injector); tg('b-blow', c.blower); tg('b-pan', c.pantograph); tg('b-sand', c.sand); tg('b-whi', trip.whistleHeld); tg('b-emg', c.emergency);
     // jauges selon la traction
     if (sim.steam) {
@@ -200,8 +211,8 @@ export class DriveHud {
     if (this.instr >= 2) this.bar('btemp', (sim.brakeTempAvg - 20) / 480, `${Math.round(sim.brakeTempAvg)} °C`, sim.brakeTempAvg > 400 ? 'low' : sim.brakeTempAvg > 250 ? 'mid' : '');
     this.bar('sand', sim.sand, `${Math.round(sim.sand * 100)} %`, sim.sand < 0.15 ? 'low' : '');
     const gr = routeGrade(trip.route, sim.s - sim.length / 3) * 100;
-    $(r, 'grade').textContent = this.instr >= 1 ? `${gr >= 0 ? '+' : ''}${gr.toFixed(1)} %` : (gr > 1.2 ? 'montée' : gr < -1.2 ? 'descente' : 'plat');
-    $(r, 'te').textContent = `${Math.round(sim.tractionN / 1000)} kN`;
+    put($(r, 'grade'), 't', this.instr >= 1 ? `${gr >= 0 ? '+' : ''}${gr.toFixed(1)} %` : (gr > 1.2 ? 'montée' : gr < -1.2 ? 'descente' : 'plat'), (e, v) => { e.textContent = v; });
+    put($(r, 'te'), 't', `${Math.round(sim.tractionN / 4000) * 4} kN`, (e, v) => { e.textContent = v; });
     const st: string[] = [];
     if (sim.slipping) st.push(this.instr >= 2 ? '⚠ patinage' : 'roues qui patinent');
     if (sim.skidding) st.push('⚠ enrayage');
@@ -211,7 +222,7 @@ export class DriveHud {
     if (routeTunnel(trip.route, sim.s)) st.push('tunnel');
     if (sim.electric && sim.electric.voltage === 0 && sim.electric.pantoUp && !sim.electric.powered) st.push('pas de courant');
     if (kmh > toKmh(lim) * 1.06 + 1) st.push('⚠ survitesse');
-    $(r, 'status').innerHTML = st.length ? st.map(s => `<div class="${s.startsWith('⚠') || s.includes('rompu') ? 'bad' : 'brass'}">${s}</div>`).join('') : '<span class="good">Normal</span>';
+    put($(r, 'status'), 'h', st.join('|'), (e) => { e.innerHTML = st.length ? st.map(s => `<div class="${s.startsWith('⚠') || s.includes('rompu') ? 'bad' : 'brass'}">${s}</div>`).join('') : '<span class="good">Normal</span>'; });
     // signaux en vue
     const flag = $(r, 'flag'); const red = trip.nextRedSignal();
     const distant = trip.route.features.find(f => f.kind === 'distant' && f.s > sim.s && f.s - sim.s < eraAt(yearNow(trip.g.state)).signalSight && trip.signalAspect(f) === 'yellow');

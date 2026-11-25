@@ -44,3 +44,4 @@ function frame(now: number) {
 }
 requestAnimationFrame(frame);
 console.log('vehicles', trip.sim.vehicles.map(v => v.unit.defId + ':' + v.lengthM).join(','), 'len', trip.sim.length.toFixed(0), 'start', trip.route.startFront);
+(window as any).bench = () => { const t0 = performance.now(); const N = 200; for (let i = 0; i < N; i++) { trip.update(1 / 60); scene.render(1 / 60); } return (performance.now() - t0) / N; };

@@ -24,8 +24,8 @@ const ctx = canvas.getContext('2d')!; ctx.imageSmoothingEnabled = false;
 canvas.width = VW; canvas.height = VH;
 
 function layout() {
-  const m = Math.min(innerWidth / VW, innerHeight / VH);
-  const k = m >= 1 ? Math.floor(m) : m;
+  // la scène remplit la fenêtre en conservant le rapport 16:9 (mise à l'échelle fluide, pixels nets)
+  const k = Math.min(innerWidth / VW, innerHeight / VH);
   canvas.style.width = `${VW * k}px`; canvas.style.height = `${VH * k}px`;
 }
 addEventListener('resize', layout); layout();

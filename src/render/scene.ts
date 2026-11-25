@@ -28,7 +28,25 @@ const SAMPLE = 30, S_MIN = -6000;
 interface Obj { s: number; kind: string; v: number; plane: number; city?: number; w?: number }
 interface Particle { s: number; y: number; vx: number; vy: number; life: number; max: number; size: number; col: RGB; a: number; grow: number }
 
+class Buf {
+  cv = makeCanvas(VW, VH); ctx = this.cv.getContext('2d')!; img = this.ctx.createImageData(VW, VH); u = new Uint32Array(this.img.data.buffer);
+  clear() { this.u.fill(0); this.minY = VH; }
+  minY = VH;
+  col(x: number, y0: number, y1: number, c: RGB) {
+    if (x < 0 || x >= VW) return; y0 = Math.max(0, Math.round(y0)); if (y0 < this.minY) this.minY = y0; y1 = Math.min(VH, Math.round(y1)); if (y1 <= y0) return;
+    const v = (255 << 24) | ((c[2] | 0) << 16) | ((c[1] | 0) << 8) | (c[0] | 0);
+    for (let y = y0; y < y1; y++) this.u[y * VW + x] = v;
+  }
+  colN(x: number, y0: number, y1: number, r: number, g: number, b: number, w = 1) {
+    y0 = Math.max(0, y0 | 0); y1 = Math.min(VH, y1 | 0); if (y1 <= y0) return; if (y0 < this.minY) this.minY = y0;
+    const v = (255 << 24) | ((b | 0) << 16) | ((g | 0) << 8) | (r | 0);
+    for (let k = 0; k < w && x + k < VW; k++) for (let y = y0; y < y1; y++) this.u[y * VW + x + k] = v;
+  }
+  flush(dst: CanvasRenderingContext2D) { const y = Math.min(this.minY, VH - 1); this.ctx.putImageData(this.img, 0, 0, 0, y, VW, VH - y); dst.drawImage(this.cv, 0, y, VW, VH - y, 0, y, VW, VH - y); }
+}
+
 export class SceneRenderer {
+  lbuf = new Buf(); gbuf = new Buf();
   cv: HTMLCanvasElement; c: CanvasRenderingContext2D;
   light: HTMLCanvasElement; lc: CanvasRenderingContext2D;
   trip!: Trip; world!: World; route!: Route; season: P.Season = 'été';
@@ -177,18 +195,18 @@ export class SceneRenderer {
     this.wheelPhase += sim.v * dt;
     c.save();
     c.setTransform(1, 0, 0, 1, 0, 0);
-    this.drawSky(dl, w.cloud, w.kind);
-    this.drawLayers(dl);
-    this.drawObjects(0, 0.99);
-    this.drawGround();
-    this.drawTrackSide(dl);
-    this.drawObjects(0.99, 1.2);
-    this.drawVehicles(dt);
-    this.updateParticles(dt);
-    this.drawParticles();
-    this.drawForeground();
-    this.drawWeather(dt);
-    this.applyLighting(dl, inTunnelNow);
+    const T = (window as any).__prof ? (n: string, f: () => void) => { const t = performance.now(); f(); const P = ((window as any).__profd ??= {}); P[n] = (P[n] ?? 0) + performance.now() - t; } : (_n: string, f: () => void) => f();
+    T('sky', () => this.drawSky(dl, w.cloud, w.kind));
+    T('layers', () => this.drawLayers(dl));
+    T('obj0', () => this.drawObjects(0, 0.99));
+    T('ground', () => this.drawGround());
+    T('track', () => this.drawTrackSide(dl));
+    T('obj1', () => this.drawObjects(0.99, 1.2));
+    T('veh', () => this.drawVehicles(dt));
+    T('part', () => { this.updateParticles(dt); this.drawParticles(); });
+    T('fore', () => this.drawForeground());
+    T('weather', () => this.drawWeather(dt));
+    T('light', () => this.applyLighting(dl, inTunnelNow));
     c.restore();
   }
 
@@ -227,27 +245,31 @@ export class SceneRenderer {
     const fog = this.trip.weather.fog;
     LAYERS.forEach((L, li) => {
       if (!L.arr) return;
+      if (li === 0 || li === 3) this.lbuf.clear();
       const haze = clamp(L.haze + fog * 0.5, 0, 0.95);
       const hazeCol = this.sky.hor;
       const seaH = SEA_LEVEL * HSCALE * 0.1;
-      for (let x = 0; x < VW; x++) {
+      const step = L.p < 0.2 ? 2 : 1, lb = this.lbuf, c3 = L.col!, hr = hazeCol[0], hg = hazeCol[1], hb = hazeCol[2], oc = this.biomeColor(Biome.Ocean, 0, this.season);
+      const bottom = 340;
+      for (let x = 0; x < VW; x += step) {
         const s = this.sFront + (x - FRONT_X) * MPP / L.p;
         const fi = (s - S_MIN) / SAMPLE; const i0 = clamp(Math.floor(fi), 0, L.arr.length - 2), t = clamp(fi - i0, 0, 1);
-        const h = lerp(L.arr[i0], L.arr[i0 + 1], t);
+        const h = L.arr[i0] + (L.arr[i0 + 1] - L.arr[i0]) * t;
         const b = L.bio![Math.round(clamp(fi, 0, L.arr.length - 1))];
         const sea = b === Biome.Ocean;
-        const y = Math.round(L.base - ((sea ? seaH : h) - this.elevCam) * L.amp);
-        const c3 = L.col!; const col0: RGB = [lerp(c3[i0 * 3], c3[i0 * 3 + 3], t), lerp(c3[i0 * 3 + 1], c3[i0 * 3 + 4], t), lerp(c3[i0 * 3 + 2], c3[i0 * 3 + 5], t)];
-        let col = sea ? mix(this.biomeColor(Biome.Ocean, 0, this.season), hazeCol, haze) : mix(col0, hazeCol, haze);
-        if (sea) { const sh = 0.5 + 0.5 * Math.sin(x * 0.4 + this.t * 2 + li); col = mix(col, [255, 255, 255], sh * 0.08); }
-        const yy = clamp(y, -4, VH);
-        c.fillStyle = css(shade(col, 1.12)); c.fillRect(x, yy, 1, 2);
-        c.fillStyle = css(col); c.fillRect(x, yy + 2, 1, 14);
-        c.fillStyle = css(shade(col, 0.93)); c.fillRect(x, yy + 16, 1, VH - yy);
-        if (!sea && h > 300 && li < 2 && b >= Biome.Mountain) { c.fillStyle = css(mix(hex('#f4f7fa'), hazeCol, haze)); c.fillRect(x, yy, 1, 3); }
+        const yy = Math.round(L.base - ((sea ? seaH : h) - this.elevCam) * L.amp);
+        let r0: number, g0: number, b0: number;
+        if (sea) { const sh = (0.5 + 0.5 * Math.sin(x * 0.4 + this.t * 2 + li)) * 0.08; r0 = oc[0] + (255 - oc[0]) * sh; g0 = oc[1] + (255 - oc[1]) * sh; b0 = oc[2] + (255 - oc[2]) * sh; }
+        else { r0 = c3[i0 * 3] + (c3[i0 * 3 + 3] - c3[i0 * 3]) * t; g0 = c3[i0 * 3 + 1] + (c3[i0 * 3 + 4] - c3[i0 * 3 + 1]) * t; b0 = c3[i0 * 3 + 2] + (c3[i0 * 3 + 5] - c3[i0 * 3 + 2]) * t; }
+        const r1 = r0 + (hr - r0) * haze, g1 = g0 + (hg - g0) * haze, b1 = b0 + (hb - b0) * haze;
+        lb.colN(x, yy, yy + 2, Math.min(255, r1 * 1.12 + 10), Math.min(255, g1 * 1.12 + 10), Math.min(255, b1 * 1.12 + 10), step);
+        lb.colN(x, yy + 2, yy + 16, r1, g1, b1, step);
+        lb.colN(x, yy + 16, bottom, r1 * 0.93, g1 * 0.93, b1 * 0.93, step);
+        if (!sea && h > 300 && li < 2 && b >= Biome.Mountain) lb.colN(x, yy, yy + 3, 244 + (hr - 244) * haze, 247 + (hg - 247) * haze, 250 + (hb - 250) * haze, step);
       }
+      if (li === 2 || li === 3) this.lbuf.flush(c);
       // arbres de fond
-      if (L.trees) {
+      if (L.trees && !(window as any).__notrees) {
         for (let x = 6; x < VW; x += L.trees) {
           const s = this.sFront + (x - FRONT_X) * MPP / L.p;
           const fi = (s - S_MIN) / SAMPLE; const i0 = clamp(Math.floor(fi), 0, L.arr.length - 2), t = clamp(fi - i0, 0, 1);
@@ -310,8 +332,9 @@ export class SceneRenderer {
   private planeYAdjust(o: Obj): number { return o.plane < 0.99 ? -(o.plane * 6) + 8 : 0; }
 
   private drawGround() {
-    const c = this.c, r = this.route;
+    const r = this.route, g = this.gbuf; g.clear();
     const season = this.season;
+    let col: RGB = [0, 0, 0];
     for (let x = 0; x < VW; x++) {
       const s = this.sFront + (x - FRONT_X) * MPP;
       const sc = clamp(s, 0, r.length);
@@ -320,20 +343,16 @@ export class SceneRenderer {
       if (r.tunnel[gi]) continue;
       const bridge = r.bridge[gi] === 1;
       const ground = clamp((r.ground[gi] - r.elev[gi]), -30, 30);
-      // remblai/déblai : la terre monte ou descend de part et d'autre de la voie
-      const biome = this.groundBiome(sc);
-      const col = this.biomeColor(biome, 0, season);
+      if (x % 4 === 0) col = this.biomeColor(this.groundBiome(sc), 0, season);
       const gy = y + 7;
       if (!bridge) {
-        c.fillStyle = css(shade(col, 1.05)); c.fillRect(x, gy, 1, 2);
-        c.fillStyle = css(shade(col, 0.88)); c.fillRect(x, gy + 2, 1, 22);
-        c.fillStyle = css(shade(col, 0.74)); c.fillRect(x, gy + 24, 1, VH);
-        for (let k = 0; k < 4; k++) { const yy = gy + 30 + k * 18 + ((x * 13 + k * 7) % 5 === 0 ? 1 : 0); if (((x >> 3) + k) % 3 === 0) { c.fillStyle = css(shade(col, 0.66 + k * 0.03)); c.fillRect(x, yy, 1, 2); } }
-        // déblai : talus derrière la voie
-        if (ground > 3) { const hh = Math.round(clamp(ground * 0.9, 0, 26)); c.fillStyle = css(shade(col, 0.8)); c.fillRect(x, y - hh, 1, hh); c.fillStyle = css(shade(col, 0.95)); c.fillRect(x, y - hh, 1, 1); }
-        if (((x + (this.sFront / MPP | 0)) * 2654435761 >>> 0) % 23 === 0) { c.fillStyle = css(shade(col, 1.2)); c.fillRect(x, gy, 1, 1); }
+        g.col(x, gy, gy + 2, shade(col, 1.05)); g.col(x, gy + 2, gy + 24, shade(col, 0.88)); g.col(x, gy + 24, VH, shade(col, 0.74));
+        for (let k = 0; k < 4; k++) { const yy = gy + 30 + k * 18 + ((x * 13 + k * 7) % 5 === 0 ? 1 : 0); if (((x >> 3) + k) % 3 === 0) g.col(x, yy, yy + 2, shade(col, 0.66 + k * 0.03)); }
+        if (ground > 3) { const hh = Math.round(clamp(ground * 0.9, 0, 26)); g.col(x, y - hh, y, shade(col, 0.8)); g.col(x, y - hh, y - hh + 1, shade(col, 0.95)); }
+        if (((x + (this.sFront / MPP | 0)) * 2654435761 >>> 0) % 23 === 0) g.col(x, gy, gy + 1, shade(col, 1.2));
       }
     }
+    g.flush(this.c);
   }
   private groundBiome(s: number): number {
     const w = this.world, r = this.route;
